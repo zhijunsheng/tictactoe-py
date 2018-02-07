@@ -1,3 +1,5 @@
+import unittest
+
 class Tree:
     """Abstract base class representing a tree structure."""
 
@@ -149,7 +151,7 @@ class LinkedBinaryTree(BinaryTree):
 
     def _make_position(self, node):
         """Return Position instance for given node (or None if no node)."""
-        return self.Position(self, node) if node is not Node else None
+        return self.Position(self, node) if node is not None else None
 
     def __init__(self):
         """Create an initially empty binary tree."""
@@ -240,3 +242,130 @@ class LinkedBinaryTree(BinaryTree):
         Raise ValueError if Position p is invalid or p has two children.
         """
         node = self._validate(p)
+        if self.num_children(p) == 2:
+            raise ValueError('p has two children')
+        child = node._left if node._left else node._right       # might be None
+        if child is not None:
+            child._parent = node._parent                        # child's grandparent becomes parent
+        if node is self._root:
+            self._root = child                                  # child becomes root
+        else:
+            parent = node._parent
+            if node is parent._left:
+                parent._left = child
+            else:
+                parent._right = child
+        self._size -= 1
+        node._parent = node                                     # convention for deprecated node
+        return node._element
+
+    def _attach(self, p, t1, t2):
+        """Attach trees t1 and t2 as left and right subtrees of external p."""
+        node = self._validate(p)
+        if not self.is_leaf(p):
+            raise ValueError('position must be leaf')
+        if not type(self) is type(t1) is type(t2):              # all 3 trees must be same type
+            raise TypeError('Tree types must match')
+        self._size += len(t1) + len(t2)
+        if not t1.is_empty():                                   # attched t1 as left subtree of node
+            t1._root._parent = node
+            node._left = t1._root
+            t1._root = None                                     # set t1 instance to empty
+            t1._size = 0
+        if not t2.is_empty():                                   # attched t2 as right subtree of node
+            t2._root._parent = node
+            node._right = t2._root
+            t2._root = None                                     # set t2 instance to empty
+            t2._size = 0
+
+class ExpressionTree(LinkedBinaryTree):
+    """An arithmetic expression tree."""
+
+    def __init__(self, token, left = None, right = None):
+        """Create an expression tree.
+
+        In a single parameter form, token should be a leaf value (e.g., '42'),
+        and the expression tree will have that value at an isolated node.
+
+        In a three-parameter version, token should be an operator,
+        and left and right should be existing ExpressionTree instances
+        that become the operands for the binary operator.
+        """
+        LinkedBinaryTree.__init__(self)                  # LinkedBinaryTree initialization
+        if not isinstance(token, str):
+            raise TypeError('Token must be a string')
+        self._add_root(token)                # use inherited, nonpublic method
+        if left is not None:
+            if token not in '+-*x/':
+                raise ValueError('token must be valid operator')
+            self._attach(self.root(), left, right)  # use inherited, nonpublic method
+
+    def __str__(self):
+        """Return string representation of the expression."""
+        pieces = []                         # sequence of piecewise strings to compose
+        self._parenthesize_recur(self.root(), pieces)
+        return ''.join(pieces)
+
+    def _parenthesize_recur(self, p, result):
+        """Append piecewise representation of p's subtree to resulting list."""
+        if self.is_leaf(p):
+            result.append(str(p.element()))                 # leaf value as a string
+        else:
+            result.append('(')                              # opening parenthesis
+            self._parenthesize_recur(self.left(p), result)  # left subtree
+            result.append(p.element())                      # operator
+            self._parenthesize_recur(self.right(p), result) # right subtree
+            result.append(')')                              # closing parenthesis
+
+    def evaluate(self):
+        """Return the numeric result of the expression."""
+        return self._evaluate_recur(self.root())
+
+    def _evaluate_recur(self, p):
+        """Return the numeric result of subtree rooted at p."""
+        if self.is_leaf(p):
+            return float(p.element())           # we assume element is numeric
+        else:
+            op = p.element()
+            left_val = self._evaluate_recur(self.left(p))
+            right_val = self._evaluate_recur(self.right(p))
+            if op == '+':
+                return left_val + right_val
+            elif op == '-':
+                return left_val - right_val
+            elif op == '/':
+                return left_val / right_val
+            else:
+                return left_val * right_val     # treat 'x' or '*' as multiplication
+
+def build_expression_tree(tokens):
+    """Return an ExpressionTree based upon by a tokenized expression."""
+    S = []                                      # we use Python list as stack
+    for t in tokens:
+        if t in '+-x*/':                        # t is an operator symbol
+            S.append(t)                         # push the operator symbol
+        elif t not in '()':                     # consider t to be a literal
+            S.append(ExpressionTree(t))         # push trivial tree storing value
+        elif t == ')':                          # compose a new tree from three constituent parts
+            right = S.pop()                     # right subtree as per LIFO
+            op = S.pop()                        # operator symbol
+            left = S.pop()                      # left subtree
+            S.append(ExpressionTree(op, left, right))   # repush tree
+        # we ignore a left parenthesis
+    return S.pop()
+
+
+class TestExpressionTree(unittest.TestCase):
+
+    def test_build_expression_tree(self):
+        expressionStr = '(((3+1)x4)/((9-5)+2))'
+        expressionTree = build_expression_tree(expressionStr)
+        self.assertEqual(expressionStr, str(expressionTree))
+
+    def test_evaluate(self):
+        expressionStr = '(((3+1)x4)/((9-5)+2))'
+        expressionTree = build_expression_tree(expressionStr)
+        self.assertEqual(2.6666666666666665, expressionTree.evaluate())
+
+if __name__ == '__main__':
+    unittest.main()
