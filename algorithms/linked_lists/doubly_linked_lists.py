@@ -273,6 +273,39 @@ class FavoritesList:
             yield item._value                       # report user's element
             walk = self._data.after(walk)
 
+class FavoritesListMTF(FavoritesList):
+    """List of elements ordered with move-to-front heuristic."""
+
+    # we override _move_up to provide move-to-front semantics
+    def _move_up(self, p):
+        """Move accessed item at Position p to front of list."""
+        if p != self._data.first():
+            self._data.add_first(self._data.delete(p))      # delete/reinsert
+
+    # we override top because list is no longer sorted
+    def top(self, k):
+        """Generate sequence of top k elements in terms of access count."""
+        if not 1 <= k <= len(self):
+            raise ValueError('Illegal value for k')
+
+        # we begin by making a copy of the original list
+        temp = PositionalList()
+        for item in self._data:             # positional lists support iteration
+            temp.add_last(item)
+
+        # we repeatedly find, report, and remove element with largest count
+        for j in range(k):
+            # find and reprot next highest from temp
+            highPos = temp.first()
+            walk = temp.after(highPos)
+            while walk is not None:
+                if walk.element()._count > highPos.element()._count:
+                    highPos = walk
+                walk = temp.after(walk)
+            # we have found teh element with highest count
+            yield highPos.element()._value  # report element to user
+            temp.delete(highPos)            # remove from temp list
+
 class DequeTests(unittest.TestCase):
 
     def test_deque(self):
@@ -316,5 +349,17 @@ class FavoritesListTests(unittest.TestCase):
         fl.access(23)
         self.assertEqual([23, 13, 17], list(fl.top(3)))
 
+class FavoritesListMTFTests(unittest.TestCase):
+
+    def test_favorites_list_mft(self):
+        fl = FavoritesList()
+        fl.access(13)
+        fl.access(17)
+        fl.access(13)
+        fl.access(23)
+        fl.access(23)
+        fl.access(23)
+        self.assertEqual([23, 13, 17], list(fl.top(3)))
+        
 if __name__ == '__main__':
     unittest.main()
