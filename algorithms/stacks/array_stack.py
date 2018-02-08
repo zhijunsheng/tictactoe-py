@@ -41,7 +41,41 @@ class ArrayStack:
             raise Empty('Stack is empty')
         return self._data.pop()         # remove last item from list
 
-class TestArrayStack(unittest.TestCase):
+def is_matched(expr):
+    """Return True if all delimiters are properly match; False otherwise."""
+    lefty = '({['                       # opening delimiters
+    righty = ')}]'                      # respective closing delims
+    S = ArrayStack()
+    for c in expr:
+        if c in lefty:
+            S.push(c)                   # push left delimiter on stack
+        elif c in righty:
+            if S.is_empty():
+                return False            # nothing to match with
+            if righty.index(c) != lefty.index(S.pop()):
+                return False            # mismatched
+    return S.is_empty()                 # were all symbols matched?
+
+def is_matched_html(raw):
+    """Return True if all HTML tags are properly match; False otherwise."""
+    S = ArrayStack()
+    j = raw.find('<')                       # find first '<' character (if any)
+    while j != -1:
+        k = raw.find('>', j + 1)            # find next '>' character
+        if k == -1:
+            return False                    # invalid tag
+        tag = raw[j + 1: k]                 # strip away < >
+        if not tag.startswith('/'):          # this is opening tag
+            S.push(tag)
+        else:                               # this is closing tag
+            if S.is_empty():
+                return False                # nothing to match with
+            if tag[1:] != S.pop():
+                return False                # mismatched tag
+        j = raw.find('<', k + 1)            # find next '<' character (if any)
+    return S.is_empty()                     # were all opening tags matched?
+
+class ArrayStackTests(unittest.TestCase):
 
     def test_push_top(self):
         s = ArrayStack()
@@ -68,6 +102,15 @@ class TestArrayStack(unittest.TestCase):
         s = ArrayStack()
         self.assertTrue(s.is_empty())
         self.assertRaises(Empty, s.pop)
+
+    def test_is_matched(self):
+        self.assertTrue(is_matched('[(5+x)-(y+z)]'))
+        self.assertFalse(is_matched('[(5+x)-(y+z)'))
+
+    def test_is_matched_html(self):
+        self.assertTrue(is_matched_html('<html><body>This is a body</body></html>'))
+        self.assertFalse(is_matched_html('<html><body>This is a body</html></body>'))
+        self.assertFalse(is_matched_html('<body>This is a body</bod>'))
 
 if __name__ == '__main__':
     unittest.main()
