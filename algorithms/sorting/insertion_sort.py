@@ -10,7 +10,7 @@ def insertion_sort(A):
             j -= 1
         A[j] = cur                      # cur is now in the right place
 
-class TestInsertionSort(unittest.TestCase):
+class InsertionSortTests(unittest.TestCase):
 
     def test_insertion_sort(self):
         orig = [3, 7, 5]
